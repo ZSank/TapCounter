@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +24,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
@@ -35,7 +37,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat.getSystemService
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -50,6 +51,10 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
+		
+		val viewModel: CounterViewModel by viewModels()
+		viewModel.updateCount(getPref(PrefKey.COUNT).toIntOrDef())
+		
 		enableEdgeToEdge()
 		setContent {
 			TapCounterTheme {
@@ -58,6 +63,12 @@ class MainActivity : ComponentActivity() {
 					val count by vm.currentCount.observeAsState()
 					var data by rememberSaveable { mutableStateOf(listOf("")) }
 					
+					LaunchedEffect (data) {
+						setPref(data.toString(), PrefKey.DATA)
+					}
+					LaunchedEffect (count) {
+						setPref(count.toString(), PrefKey.COUNT)
+					}
 					CounterApp( Modifier.padding(innerPadding), count ?: 0,
 						{
 							vm.incrementCount()
@@ -82,6 +93,19 @@ class MainActivity : ComponentActivity() {
 		val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 		val clip: ClipData = ClipData.newPlainText("count data", data)
 		clipboard.setPrimaryClip(clip)
+	}
+	
+	private fun setPref(value: String, key: PrefKey){
+		val sharedPref = this.getPreferences(Context.MODE_PRIVATE) ?: return
+		with (sharedPref.edit()) {
+			putString(key.toString(), value)
+			apply()
+		}
+	}
+	
+	private fun getPref(key: PrefKey): String {
+		val sharedPref = this.getPreferences(Context.MODE_PRIVATE) ?: return ""
+		return sharedPref.getString(key.toString(), "") ?: ""
 	}
 	
 }
@@ -186,7 +210,8 @@ fun AlertDialogExample(
 	)
 }
 
-class CounterViewModel : ViewModel(){
+@HiltViewModel
+class CounterViewModel @Inject constructor() : ViewModel(){
 	var currentCount = MutableLiveData(0)
 		private set
 	
@@ -205,4 +230,11 @@ class CounterViewModel : ViewModel(){
 	
 }
 
+enum class PrefKey{
+	COUNT,
+	DATA
+}
 
+fun String.toIntOrDef(default: Int = 0): Int {
+	return this.toIntOrNull() ?: default
+}
