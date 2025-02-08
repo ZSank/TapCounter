@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -41,8 +42,11 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.tapcounter.ui.theme.TapCounterTheme
+import com.google.gson.Gson
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -54,17 +58,17 @@ class MainActivity : ComponentActivity() {
 		
 		val viewModel: CounterViewModel by viewModels()
 		viewModel.updateCount(getPref(PrefKey.COUNT).toIntOrDef())
-		
+		val initialData = Json.decodeFromString<List<String>>(getPref(PrefKey.DATA))
 		enableEdgeToEdge()
 		setContent {
 			TapCounterTheme {
 				Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
 					val vm: CounterViewModel = viewModel()
 					val count by vm.currentCount.observeAsState()
-					var data by rememberSaveable { mutableStateOf(listOf("")) }
+					var data by rememberSaveable { mutableStateOf(initialData) }
 					
 					LaunchedEffect (data) {
-						setPref(data.toString(), PrefKey.DATA)
+						setPref(Json.encodeToString(data), PrefKey.DATA)
 					}
 					LaunchedEffect (count) {
 						setPref(count.toString(), PrefKey.COUNT)
@@ -106,6 +110,25 @@ class MainActivity : ComponentActivity() {
 	private fun getPref(key: PrefKey): String {
 		val sharedPref = this.getPreferences(Context.MODE_PRIVATE) ?: return ""
 		return sharedPref.getString(key.toString(), "") ?: ""
+	}
+	
+	private fun decodeFromString(data: String): List<String> {
+		Log.d("mLog-MainActivity", "decodeFromString: ")
+		return try {
+			Json.decodeFromString<List<String>>(data)
+		} catch (e: Exception) {
+			Log.d("mLog-MainActivity", "decodeFromString: data:$data \n exception:$e")
+			listOf("")
+		}
+	}
+	
+	private fun encodeToString(data: List<String>): String {
+		return try {
+			Json.encodeToString(data)
+		} catch (e: Exception) {
+			Log.d("mLog-MainActivity", "encodeToString: data:$data \n exception:$e")
+			""
+		}
 	}
 	
 }
@@ -237,4 +260,8 @@ enum class PrefKey{
 
 fun String.toIntOrDef(default: Int = 0): Int {
 	return this.toIntOrNull() ?: default
+}
+
+fun Any.print(text: String = ""){
+	println("$text $this")
 }
