@@ -42,10 +42,8 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.tapcounter.ui.theme.TapCounterTheme
-import com.google.gson.Gson
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -58,7 +56,10 @@ class MainActivity : ComponentActivity() {
 		
 		val viewModel: CounterViewModel by viewModels()
 		viewModel.updateCount(getPref(PrefKey.COUNT).toIntOrDef())
-		val initialData = Json.decodeFromString<List<String>>(getPref(PrefKey.DATA))
+		val data = getPref(PrefKey.DATA).ifBlank { "[]" }
+		val initialData = runCatching { Json.decodeFromString<List<String>>(data) }
+			.getOrElse { listOf<String>() }
+		
 		enableEdgeToEdge()
 		setContent {
 			TapCounterTheme {
